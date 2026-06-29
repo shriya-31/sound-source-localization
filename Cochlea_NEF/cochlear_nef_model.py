@@ -24,7 +24,7 @@ ganglion neurons with no mixing between channels at this stage.
 import numpy as np
 import nengo
 
-from Cochlea_NEF.cochlear_filterbank import GammatoneFilterbank, make_erb_spaced_freqs
+from cochlear_filterbank import GammatoneFilterbank, make_erb_spaced_freqs
 
 
 def hair_cell_transduce(x, compression_exponent=0.4, gain=5.0):

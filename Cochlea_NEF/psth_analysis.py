@@ -19,7 +19,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import nengo
 
-from Cochlea_NEF.cochlear_nef_model import CochlearModel
+from cochlear_nef_model import CochlearModel
 
 
 def make_tone_burst(fs, freq, total_dur=0.10, onset=0.02, burst_dur=0.05, amplitude=0.5):
