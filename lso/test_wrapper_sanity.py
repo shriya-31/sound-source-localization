@@ -9,15 +9,23 @@ analysis pipeline. Confirms:
      the rate -- the basic ILD tuning curve shape Fig. 3.25 relies on.
   3. The channel nearest a test frequency actually has the (near-)highest
      response to a tone at that frequency, i.e. the tonotopic channel
-     selection in get_spike_rate is picking the right channel.
+     selection in get_spike_rate is picking the right channel. Reports
+     both the old NEF-decoded profile and the new real spike-rate
+     profile side by side, to check whether the channel-gain caveat
+     found under the decoded value still shows up under real rates.
+  4. Individual neurons within one channel's population actually differ
+     from each other (not identical rates), and their spread is visible
+     alongside the population mean -- addresses Bryan's feedback to
+     "try a few different neurons of the same channel."
 """
 
 import numpy as np
 from level_difference_wrapper import LSOWrapper
 
 wrapper = LSOWrapper()
-freq = float(wrapper.cfs[len(wrapper.cfs) // 2])
-print(f"Test frequency: {freq:.0f} Hz (channel {len(wrapper.cfs)//2})")
+TEST_CH = 39  # CF ~50078 Hz -- high-frequency channel, contrast to ch 24
+freq = float(wrapper.cfs[TEST_CH])
+print(f"Test frequency: {freq:.0f} Hz (channel {TEST_CH})")
 
 # --- Test 1: excitation direction ---
 rate_ipsi_dominant = wrapper.get_spike_rate(ipsi_level=70, contra_level=0, frequency=freq)
@@ -44,11 +52,23 @@ results = wrapper.brainstem.run(left_signal=ipsi_tone, right_signal=contra_tone)
 expected_ch = int(np.argmin(np.abs(wrapper.cfs - freq)))
 actual_ch = int(np.argmax(results.lso_L))
 print(f"\n[3] Expected peak channel: {expected_ch} (CF={wrapper.cfs[expected_ch]:.0f} Hz)")
-print(f"[3] Actual peak channel:   {actual_ch} (CF={wrapper.cfs[actual_ch]:.0f} Hz)")
-print("[3] PASS" if abs(actual_ch - expected_ch) <= 2 else "[3] FAIL")
+print(f"[3] Actual peak channel (decoded lso_L):   {actual_ch} (CF={wrapper.cfs[actual_ch]:.0f} Hz)")
+actual_ch_hz = int(np.argmax(results.lso_L_rate_hz))
+print(f"[3] Actual peak channel (real lso_L_rate_hz): {actual_ch_hz} (CF={wrapper.cfs[actual_ch_hz]:.0f} Hz)")
+print("[3] PASS" if abs(actual_ch_hz - expected_ch) <= 2 else "[3] FAIL")
 
-print("\n[3] Full per-channel profile (channel, CF, lso_L rate), sorted by rate:")
-order = np.argsort(results.lso_L)[::-1]
+print("\n[3] Full per-channel profile (channel, CF, decoded lso_L, real lso_L_rate_hz), sorted by real rate:")
+order = np.argsort(results.lso_L_rate_hz)[::-1]
 for ch in order:
     marker = "  <-- expected" if ch == expected_ch else ""
-    print(f"    ch {ch:2d}  CF={wrapper.cfs[ch]:8.0f} Hz  rate={results.lso_L[ch]:.4f}{marker}")
+    print(f"    ch {ch:2d}  CF={wrapper.cfs[ch]:8.0f} Hz  decoded={results.lso_L[ch]:.4f}  rate_hz={results.lso_L_rate_hz[ch]:7.2f}{marker}")
+
+# --- Test 4: individual neuron variability within one channel ---
+test_ch = TEST_CH
+neuron_rates = results.lso_L_neuron_rates[test_ch]
+print(f"\n[4] Channel {test_ch} (CF={wrapper.cfs[test_ch]:.0f} Hz), first 10 of {len(neuron_rates)} neurons:")
+for i, r in enumerate(neuron_rates[:10]):
+    print(f"    neuron {i:2d}: {r:7.2f} Hz")
+print(f"    population mean: {neuron_rates.mean():7.2f} Hz  (matches lso_L_rate_hz[{test_ch}]={results.lso_L_rate_hz[test_ch]:.2f})")
+print(f"    population std:  {neuron_rates.std():7.2f} Hz")
+print("[4] PASS (neurons differ)" if neuron_rates.std() > 0 else "[4] FAIL (all neurons identical)")

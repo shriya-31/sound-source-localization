@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
     # Case 3: New pipeline + LSOWrapper (slow -- real simulation, ~31 runs)
     wrapper = LSOWrapper()
-    ch = len(wrapper.cfs) // 2
+    ch = 39  # CF ~50078 Hz -- high-frequency channel, contrast to ch 24
     freq = float(wrapper.cfs[ch])
     centre, bandwidth, ipsi = find_centre_and_bandwidth(wrapper, frequency=freq, plot=True)
     plt.savefig(out_dir / "case3_new_lsowrapper.png", dpi=150)

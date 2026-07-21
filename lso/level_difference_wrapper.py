@@ -69,19 +69,15 @@ class LSOWrapper:
 
         # Channel is looked up from the known Greenwood CF map, not by
         # picking whichever channel has the largest response -- raw
-        # lso_L magnitude is NOT reliably comparable across channels.
-        # KNOWN CAVEAT (see lso/test_wrapper_sanity.py Test 3): a tone
-        # at one channel's exact CF does not always produce the largest
-        # response in that channel vs. others. Likely cause: CochlearModel
-        # (Cochlea_NEF/cochlear_nef_model.py) auto-scales each channel's
-        # NEF ensemble radius to that channel's own envelope max
-        # (`ch_radius = max(ch_max, 1e-3) * 1.2`), so a channel driven
-        # only by filter leakage gets a tiny radius and a correspondingly
-        # hyper-sensitive population, which can inflate its decoded
-        # output relative to channels with genuine strong drive. Doesn't
-        # block this pipeline since find_centre_and_bandwidth only fits
-        # each channel's response relative to its own max (matching how
-        # Fisch (2025) normalizes per-neuron too), but worth revisiting
-        # if we ever need cross-channel magnitude to be meaningful.
+        # magnitude is NOT guaranteed comparable across channels (each
+        # channel's upstream cochlear ensemble auto-scales its own NEF
+        # radius to its own envelope max -- see CochlearModel in
+        # Cochlea_NEF/cochlear_nef_model.py). ORIGINAL CAVEAT (see
+        # lso/test_wrapper_sanity.py Test 3) was observed using the old
+        # NEF-decoded lso_L value; re-check whether it still holds now
+        # that get_spike_rate reads real per-neuron spike rates instead.
+        # Doesn't block this pipeline either way since find_centre_and_bandwidth
+        # only fits each channel's response relative to its own max
+        # (matching how Fisch (2025) normalizes per-neuron too).
         ch = int(np.argmin(np.abs(self.cfs - frequency)))
-        return results.lso_L[ch]
+        return results.lso_L_rate_hz[ch]
