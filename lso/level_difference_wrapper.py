@@ -58,7 +58,7 @@ class LSOWrapper:
         only fit the response curve's shape relative to itself, not an
         absolute physical SPL, so any monotonic mapping works.
         """
-        return ref_amplitude * 10 ** (level_db / 20.0)
+        return ref_amplitude * 10 ** ((level_db - 90) / 20.0) 
 
     def get_spike_rate(self, ipsi_level, contra_level, frequency):
         """Same interface as MockNeuron.get_spike_rate."""
