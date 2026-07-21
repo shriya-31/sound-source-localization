@@ -1,14 +1,21 @@
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "lso"))
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+from level_difference_wrapper import LSOWrapper
 
 """
-Draft code for finding distribution of LSO neuron ILD tuning centre and bandwidth as in Fisch (2025). 
+Draft code for finding distribution of LSO neuron ILD tuning centre and bandwidth as in Fisch (2025).
 
-TODO: 
+TODO:
 - test
 - plot model distribution with Fisch distribution
-- wrapper for sound localization model    
+- wrapper for sound localization model
 """
 
 
@@ -61,14 +68,59 @@ def logsig(x, slope, bias, max):
 def find_threshold(neuron, frequency):
     amplitudes = np.linspace(0, 90, 10) # dB
     responses = [neuron.get_spike_rate(a, 0, frequency) for a in amplitudes]
-    popt, cov = curve_fit(logsig, amplitudes, responses, p0=[1, 1, 200], bounds=([0, -250, 0], [20, 250, 1000]))
+    popt, cov = curve_fit(logsig, amplitudes, responses, p0=[1, 1, float(np.max(responses))], bounds=([0, -250, 0], [20, 250, 1000]))
     slope, bias, max = popt
     return (-np.log(9) - bias) / slope # threshold (10% of max response) according to sigmoid model
 
 
-def find_centre_and_bandwidth(neuron, plot=False):
-    freq = find_preferred_frequency(neuron)
+def find_centre_and_bandwidth(neuron, frequency=None, plot=False):
+    # frequency=None: discover it via find_preferred_frequency, as before
+    # (appropriate when the neuron's CF is unknown, e.g. MockNeuron).
+    # frequency given: use it directly, skipping discovery -- appropriate
+    # for LSOWrapper, where the CF is already known exactly (wrapper.cfs)
+    # and a Gaussian-fit discovery risks a bad fit (see the channel-gain
+    # caveat noted in lso/level_difference_wrapper.py).
+
+    freq = frequency if frequency is not None else find_preferred_frequency(neuron)
     threshold = find_threshold(neuron, freq)
+
+    ipsi = threshold + 20
+    contras = np.linspace(0, 100, 21)
+    rates = np.array([neuron.get_spike_rate(ipsi, contra, freq) for contra in contras])
+
+    popt, cov = curve_fit(logsig, contras, rates, p0=[-1, 0, float(np.max(rates))], bounds=([-10, -100, 0], [0, 100, 1000]))
+    slope, bias, max = popt
+
+    centre = -bias/slope
+    bandwidth = -2 * np.log(9) / slope
+
+    if plot:
+        plt.plot(contras, rates)
+        plt.xlabel('Contralateral level (dB)')
+        plt.ylabel('Spike rate')
+        plt.title('Centre: {} Bandwidth: {}'.format(centre, bandwidth))
+        plt.show()
+
+    return centre, bandwidth, ipsi
+
+
+# --- Snapshots of the original (pre-fix) versions, commit d401ffe -------
+# Kept only for the 3-case comparison in __main__ below. MockNeuron,
+# find_preferred_frequency, and logsig are unchanged from that commit,
+# so only the two functions that actually differ (hardcoded p0=200, no
+# frequency param, 2-value return) are duplicated here.
+
+def find_threshold_og(neuron, frequency):
+    amplitudes = np.linspace(0, 90, 10) # dB
+    responses = [neuron.get_spike_rate(a, 0, frequency) for a in amplitudes]
+    popt, cov = curve_fit(logsig, amplitudes, responses, p0=[1, 1, 200], bounds=([0, -250, 0], [20, 250, 1000]))
+    slope, bias, max = popt
+    return (-np.log(9) - bias) / slope
+
+
+def find_centre_and_bandwidth_og(neuron, plot=False):
+    freq = find_preferred_frequency(neuron)
+    threshold = find_threshold_og(neuron, freq)
 
     ipsi = threshold + 20
     contras = np.linspace(0, 100, 21)
@@ -89,9 +141,32 @@ def find_centre_and_bandwidth(neuron, plot=False):
 
     return centre, bandwidth
 
+
 if __name__ == "__main__":
+    out_dir = Path(__file__).resolve().parent
+
+    # Case 1: OG pipeline + MockNeuron
     neuron = MockNeuron()
-    centre, bandwidth = find_centre_and_bandwidth(neuron, plot=True)
+    centre, bandwidth = find_centre_and_bandwidth_og(neuron, plot=True)
+    plt.savefig(out_dir / "case1_og_mockneuron.png", dpi=150)
+    plt.close()
+    print(f"[1] OG + MockNeuron: centre={centre:.2f} dB, bandwidth={bandwidth:.2f} dB (no ipsi returned -> no ILD50 in the original code)")
+
+    # Case 2: New pipeline + MockNeuron
+    neuron = MockNeuron()
+    centre, bandwidth, ipsi = find_centre_and_bandwidth(neuron, plot=True)
+    plt.savefig(out_dir / "case2_new_mockneuron.png", dpi=150)
+    plt.close()
+    print(f"[2] New + MockNeuron: ILD50={ipsi - centre:.2f} dB, dynamic range={bandwidth:.2f} dB")
+
+    # Case 3: New pipeline + LSOWrapper (slow -- real simulation, ~31 runs)
+    wrapper = LSOWrapper()
+    ch = len(wrapper.cfs) // 2
+    freq = float(wrapper.cfs[ch])
+    centre, bandwidth, ipsi = find_centre_and_bandwidth(wrapper, frequency=freq, plot=True)
+    plt.savefig(out_dir / "case3_new_lsowrapper.png", dpi=150)
+    plt.close()
+    print(f"[3] New + LSOWrapper (ch{ch}, CF={freq:.0f} Hz): ILD50={ipsi - centre:.2f} dB, dynamic range={bandwidth:.2f} dB")
 
 
 
