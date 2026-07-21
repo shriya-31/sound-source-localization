@@ -116,6 +116,18 @@ class BrainstemModel:
             self.probes["lso_L"] = nengo.Probe(lso_L.output,synapse=smooth_tau)
             self.probes["lso_R"] = nengo.Probe(lso_R.output,synapse=smooth_tau)
 
+            # Per-neuron spike probes for lso_L, one per channel. The
+            # probes above are on .output -- the NEF-*decoded* value of
+            # each EnsembleArray, not real spikes. Probing .neurons here
+            # (same pattern as Cochlea_NEF/cochlear_nef_model.py) gives
+            # genuine rate-coded spike data, so run() can compute an
+            # actual Hz firing rate instead of a decoded scalar. Scoped
+            # to lso_L only since that's the only population LSOWrapper
+            # reads; extend to lso_R/sbc/mntb the same way if ever needed.
+            self.probes["lso_L_neurons"] = [
+                nengo.Probe(lso_L.ensembles[ch].neurons) for ch in range(config.n_channels)
+            ]
+
         self.model = model
         return model
 
@@ -146,6 +158,17 @@ class BrainstemModel:
         lso_L = (sim.data[self.probes["lso_L"]][sl].mean(axis=0))
         lso_R = (sim.data[self.probes["lso_R"]][sl].mean(axis=0))
 
+        # Nengo neuron probes are rate-coded (1/dt on a spike bin, 0
+        # otherwise), so a plain time-average already is mean firing
+        # rate in Hz -- no extra conversion needed (same method as
+        # Cochlea_NEF/psth_analysis.py). Per-neuron first (48, n_lso),
+        # then also averaged over neurons for a per-channel population
+        # rate (48,).
+        lso_L_neuron_rates = np.array([
+            sim.data[p][sl].mean(axis=0) for p in self.probes["lso_L_neurons"]
+        ])
+        lso_L_rate_hz = lso_L_neuron_rates.mean(axis=1)
+
         return SimulationResults(
             ild=ild,
             ild_scalar=float(ild.mean()),
@@ -155,5 +178,7 @@ class BrainstemModel:
             mntb_L=mntb_L,
             mntb_R=mntb_R,
             lso_L=lso_L,
-            lso_R=lso_R
+            lso_R=lso_R,
+            lso_L_rate_hz=lso_L_rate_hz,
+            lso_L_neuron_rates=lso_L_neuron_rates
         )

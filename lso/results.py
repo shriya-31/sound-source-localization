@@ -26,9 +26,14 @@ class SimulationResults:
     mntb_R: np.ndarray
         Right medial nucleus of trapezoid body activity.
     lso_L: np.ndarray
-        Left lateral superior olive activity.
+        Left lateral superior olive activity (NEF-decoded value, not a
+        spike rate -- see lso_L_rate_hz for actual firing rate).
     lso_R: np.ndarray
         Right lateral superior olive activity.
+    lso_L_rate_hz: np.ndarray
+        Left LSO population-mean firing rate per channel, in Hz. Shape (n_channels,).
+    lso_L_neuron_rates: np.ndarray
+        Left LSO per-neuron firing rate, in Hz. Shape (n_channels, n_lso).
     """
     ild: np.ndarray
     ild_scalar: float
@@ -39,3 +44,5 @@ class SimulationResults:
     mntb_R: np.ndarray
     lso_L: np.ndarray
     lso_R: np.ndarray
+    lso_L_rate_hz: np.ndarray
+    lso_L_neuron_rates: np.ndarray
