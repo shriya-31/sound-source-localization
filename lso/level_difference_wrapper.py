@@ -49,6 +49,19 @@ class LSOWrapper:
         self.stimulus_gen = StimulusGenerator(self.config)
         self.cfs = self.cochlea_L.cfs
 
+        # Caches full SimulationResults by the exact (ipsi_level,
+        # contra_level, frequency) triple that produced them. TST and
+        # onset are two different fields of the *same* simulation, so a
+        # query for one window can reuse a simulation already run for
+        # the other -- exact-float keys are safe since callers always
+        # generate their sweep values via deterministic np.linspace(...)
+        # calls (bit-identical arrays for identical arguments). Unbounded
+        # by design: this wrapper is meant to be reused for one whole
+        # population run, and the memory cost (a few hundred MB across a
+        # full 48-channel run) is an acceptable tradeoff for a one-off
+        # analysis script.
+        self._cache = {}
+
     @staticmethod
     def _level_to_amplitude(level_db, ref_amplitude=1.0):
         """
@@ -60,12 +73,22 @@ class LSOWrapper:
         """
         return ref_amplitude * 10 ** ((level_db - 90) / 20.0) 
 
-    def get_spike_rate(self, ipsi_level, contra_level, frequency):
-        """Same interface as MockNeuron.get_spike_rate."""
-        ipsi_tone = self._level_to_amplitude(ipsi_level) * self.stimulus_gen.generate_pure_tone(frequency)
-        contra_tone = self._level_to_amplitude(contra_level) * self.stimulus_gen.generate_pure_tone(frequency)
-
-        results = self.brainstem.run(left_signal=ipsi_tone, right_signal=contra_tone)
+    def get_spike_rate(self, ipsi_level, contra_level, frequency, window="tst"):
+        """
+        Same interface as MockNeuron.get_spike_rate, plus a `window`
+        selecting which analysis window's rate to return:
+          "tst"   -- whole stimulation period, onset included (matches
+                     Fisch (2025)'s own TST definition: "the onset was
+                     not excluded in the TST").
+          "onset" -- just the first config.warmup_s.
+        """
+        key = (ipsi_level, contra_level, frequency)
+        results = self._cache.get(key)
+        if results is None:
+            ipsi_tone = self._level_to_amplitude(ipsi_level) * self.stimulus_gen.generate_pure_tone(frequency)
+            contra_tone = self._level_to_amplitude(contra_level) * self.stimulus_gen.generate_pure_tone(frequency)
+            results = self.brainstem.run(left_signal=ipsi_tone, right_signal=contra_tone)
+            self._cache[key] = results
 
         # Channel is looked up from the known Greenwood CF map, not by
         # picking whichever channel has the largest response -- raw
@@ -80,4 +103,23 @@ class LSOWrapper:
         # only fits each channel's response relative to its own max
         # (matching how Fisch (2025) normalizes per-neuron too).
         ch = int(np.argmin(np.abs(self.cfs - frequency)))
-        return results.lso_L_rate_hz[ch]
+        if window == "tst":
+            return results.lso_L_rate_hz_tst[ch]
+        elif window == "onset":
+            return results.lso_L_rate_hz_onset[ch]
+        raise ValueError(f"window must be 'tst' or 'onset', got {window!r}")
+
+
+class WindowedView:
+    """
+    Fixes `window` on an LSOWrapper so it satisfies the plain 3-argument
+    get_spike_rate(ipsi, contra, freq) interface find_centre_and_bandwidth
+    expects, without that function needing to know about windows at all.
+    """
+
+    def __init__(self, wrapper, window):
+        self._wrapper = wrapper
+        self._window = window
+
+    def get_spike_rate(self, ipsi_level, contra_level, frequency):
+        return self._wrapper.get_spike_rate(ipsi_level, contra_level, frequency, window=self._window)

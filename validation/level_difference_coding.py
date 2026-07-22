@@ -7,7 +7,7 @@ sys.path.insert(0, str(REPO_ROOT / "lso"))
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from level_difference_wrapper import LSOWrapper
+from level_difference_wrapper import LSOWrapper, WindowedView
 
 """
 Draft code for finding distribution of LSO neuron ILD tuning centre and bandwidth as in Fisch (2025).
@@ -159,14 +159,18 @@ if __name__ == "__main__":
     plt.close()
     print(f"[2] New + MockNeuron: ILD50={ipsi - centre:.2f} dB, dynamic range={bandwidth:.2f} dB")
 
-    # Case 3: New pipeline + LSOWrapper (slow -- real simulation, ~31 runs)
+    # Case 3: New pipeline + LSOWrapper, both windows (slow -- real
+    # simulation, ~31 runs per window, ~62 total; no caching yet, see
+    # Step 5's plan notes -- deferred to the population-loop step)
     wrapper = LSOWrapper()
-    ch = 39  # CF ~50078 Hz -- high-frequency channel, contrast to ch 24
+    ch = len(wrapper.cfs) // 2
     freq = float(wrapper.cfs[ch])
-    centre, bandwidth, ipsi = find_centre_and_bandwidth(wrapper, frequency=freq, plot=True)
-    plt.savefig(out_dir / "case3_new_lsowrapper.png", dpi=150)
-    plt.close()
-    print(f"[3] New + LSOWrapper (ch{ch}, CF={freq:.0f} Hz): ILD50={ipsi - centre:.2f} dB, dynamic range={bandwidth:.2f} dB")
+    for window in ("tst", "onset"):
+        view = WindowedView(wrapper, window)
+        centre, bandwidth, ipsi = find_centre_and_bandwidth(view, frequency=freq, plot=True)
+        plt.savefig(out_dir / f"case3_new_lsowrapper_{window}.png", dpi=150)
+        plt.close()
+        print(f"[3-{window}] ch{ch} (CF={freq:.0f} Hz): ILD50={ipsi - centre:.2f} dB, dynamic range={bandwidth:.2f} dB")
 
 
 

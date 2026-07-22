@@ -30,10 +30,17 @@ class SimulationResults:
         spike rate -- see lso_L_rate_hz for actual firing rate).
     lso_R: np.ndarray
         Right lateral superior olive activity.
-    lso_L_rate_hz: np.ndarray
-        Left LSO population-mean firing rate per channel, in Hz. Shape (n_channels,).
-    lso_L_neuron_rates: np.ndarray
-        Left LSO per-neuron firing rate, in Hz. Shape (n_channels, n_lso).
+    lso_L_rate_hz_tst: np.ndarray
+        Left LSO population-mean firing rate per channel over the whole
+        stimulation period (onset included, per Fisch (2025)'s TST
+        definition), in Hz. Shape (n_channels,).
+    lso_L_neuron_rates_tst: np.ndarray
+        Left LSO per-neuron firing rate over TST, in Hz. Shape (n_channels, n_lso).
+    lso_L_rate_hz_onset: np.ndarray
+        Left LSO population-mean firing rate per channel over just the
+        first warmup_s (the onset window), in Hz. Shape (n_channels,).
+    lso_L_neuron_rates_onset: np.ndarray
+        Left LSO per-neuron firing rate over the onset window, in Hz. Shape (n_channels, n_lso).
     """
     ild: np.ndarray
     ild_scalar: float
@@ -44,5 +51,7 @@ class SimulationResults:
     mntb_R: np.ndarray
     lso_L: np.ndarray
     lso_R: np.ndarray
-    lso_L_rate_hz: np.ndarray
-    lso_L_neuron_rates: np.ndarray
+    lso_L_rate_hz_tst: np.ndarray
+    lso_L_neuron_rates_tst: np.ndarray
+    lso_L_rate_hz_onset: np.ndarray
+    lso_L_neuron_rates_onset: np.ndarray

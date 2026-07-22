@@ -161,13 +161,25 @@ class BrainstemModel:
         # Nengo neuron probes are rate-coded (1/dt on a spike bin, 0
         # otherwise), so a plain time-average already is mean firing
         # rate in Hz -- no extra conversion needed (same method as
-        # Cochlea_NEF/psth_analysis.py). Per-neuron first (48, n_lso),
-        # then also averaged over neurons for a per-channel population
-        # rate (48,).
-        lso_L_neuron_rates = np.array([
-            sim.data[p][sl].mean(axis=0) for p in self.probes["lso_L_neurons"]
+        # Cochlea_NEF/psth_analysis.py).
+        #
+        # TST = the whole simulated response, onset included -- matches
+        # Fisch (2025)'s own definition ("the onset was not excluded in
+        # the TST"), and how this model's original author intended
+        # warmup_s to be used (as the onset window itself, not discarded
+        # settling time). Onset = just the first warmup_s.
+        tst_sl = slice(0, None)
+        onset_sl = slice(0, warmup_samples)
+
+        lso_L_neuron_rates_tst = np.array([
+            sim.data[p][tst_sl].mean(axis=0) for p in self.probes["lso_L_neurons"]
         ])
-        lso_L_rate_hz = lso_L_neuron_rates.mean(axis=1)
+        lso_L_rate_hz_tst = lso_L_neuron_rates_tst.mean(axis=1)
+
+        lso_L_neuron_rates_onset = np.array([
+            sim.data[p][onset_sl].mean(axis=0) for p in self.probes["lso_L_neurons"]
+        ])
+        lso_L_rate_hz_onset = lso_L_neuron_rates_onset.mean(axis=1)
 
         return SimulationResults(
             ild=ild,
@@ -179,6 +191,8 @@ class BrainstemModel:
             mntb_R=mntb_R,
             lso_L=lso_L,
             lso_R=lso_R,
-            lso_L_rate_hz=lso_L_rate_hz,
-            lso_L_neuron_rates=lso_L_neuron_rates
+            lso_L_rate_hz_tst=lso_L_rate_hz_tst,
+            lso_L_neuron_rates_tst=lso_L_neuron_rates_tst,
+            lso_L_rate_hz_onset=lso_L_rate_hz_onset,
+            lso_L_neuron_rates_onset=lso_L_neuron_rates_onset
         )

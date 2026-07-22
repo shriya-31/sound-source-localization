@@ -53,22 +53,22 @@ expected_ch = int(np.argmin(np.abs(wrapper.cfs - freq)))
 actual_ch = int(np.argmax(results.lso_L))
 print(f"\n[3] Expected peak channel: {expected_ch} (CF={wrapper.cfs[expected_ch]:.0f} Hz)")
 print(f"[3] Actual peak channel (decoded lso_L):   {actual_ch} (CF={wrapper.cfs[actual_ch]:.0f} Hz)")
-actual_ch_hz = int(np.argmax(results.lso_L_rate_hz))
+actual_ch_hz = int(np.argmax(results.lso_L_rate_hz_tst))
 print(f"[3] Actual peak channel (real lso_L_rate_hz): {actual_ch_hz} (CF={wrapper.cfs[actual_ch_hz]:.0f} Hz)")
 print("[3] PASS" if abs(actual_ch_hz - expected_ch) <= 2 else "[3] FAIL")
 
-print("\n[3] Full per-channel profile (channel, CF, decoded lso_L, real lso_L_rate_hz), sorted by real rate:")
-order = np.argsort(results.lso_L_rate_hz)[::-1]
+print("\n[3] Full per-channel profile (channel, CF, decoded lso_L, real lso_L_rate_hz_tst), sorted by real rate:")
+order = np.argsort(results.lso_L_rate_hz_tst)[::-1]
 for ch in order:
     marker = "  <-- expected" if ch == expected_ch else ""
-    print(f"    ch {ch:2d}  CF={wrapper.cfs[ch]:8.0f} Hz  decoded={results.lso_L[ch]:.4f}  rate_hz={results.lso_L_rate_hz[ch]:7.2f}{marker}")
+    print(f"    ch {ch:2d}  CF={wrapper.cfs[ch]:8.0f} Hz  decoded={results.lso_L[ch]:.4f}  rate_hz={results.lso_L_rate_hz_tst[ch]:7.2f}{marker}")
 
 # --- Test 4: individual neuron variability within one channel ---
 test_ch = TEST_CH
-neuron_rates = results.lso_L_neuron_rates[test_ch]
+neuron_rates = results.lso_L_neuron_rates_tst[test_ch]
 print(f"\n[4] Channel {test_ch} (CF={wrapper.cfs[test_ch]:.0f} Hz), first 10 of {len(neuron_rates)} neurons:")
 for i, r in enumerate(neuron_rates[:10]):
     print(f"    neuron {i:2d}: {r:7.2f} Hz")
-print(f"    population mean: {neuron_rates.mean():7.2f} Hz  (matches lso_L_rate_hz[{test_ch}]={results.lso_L_rate_hz[test_ch]:.2f})")
+print(f"    population mean: {neuron_rates.mean():7.2f} Hz  (matches lso_L_rate_hz_tst[{test_ch}]={results.lso_L_rate_hz_tst[test_ch]:.2f})")
 print(f"    population std:  {neuron_rates.std():7.2f} Hz")
 print("[4] PASS (neurons differ)" if neuron_rates.std() > 0 else "[4] FAIL (all neurons identical)")
