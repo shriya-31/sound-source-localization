@@ -48,16 +48,9 @@ def _plot_metric(ax, rows, metric, ylabel, rng):
     ax.errorbar([1], [onset.mean()], yerr=[onset.std()], fmt="D", color="black",
                 capsize=4, zorder=3)
 
-    fisch_tst_mean, fisch_tst_sd = FISCH[metric]["tst"]
-    fisch_onset_mean, fisch_onset_sd = FISCH[metric]["onset"]
-    ax.errorbar([0.2], [fisch_tst_mean], yerr=[fisch_tst_sd], fmt="D", color="red",
-                capsize=4, zorder=3, label="Fisch (2025), n=13")
-    ax.errorbar([1.2], [fisch_onset_mean], yerr=[fisch_onset_sd], fmt="D", color="red",
-                capsize=4, zorder=3)
-
     ax.set_xticks([0, 1])
     ax.set_xticklabels(["TST", "Onset"])
-    ax.set_xlim(-0.4, 1.6)
+    ax.set_xlim(-0.4, 1.4)
     ax.set_ylabel(ylabel)
     ax.grid(alpha=0.3)
 
