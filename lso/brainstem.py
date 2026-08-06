@@ -171,6 +171,7 @@ class BrainstemModel:
         tst_sl = slice(0, None)
         onset_sl = slice(0, warmup_samples)
 
+
         lso_L_neuron_rates_tst = np.array([
             sim.data[p][tst_sl].mean(axis=0) for p in self.probes["lso_L_neurons"]
         ])
@@ -180,6 +181,15 @@ class BrainstemModel:
             sim.data[p][onset_sl].mean(axis=0) for p in self.probes["lso_L_neurons"]
         ])
         lso_L_rate_hz_onset = lso_L_neuron_rates_onset.mean(axis=1)
+
+        lso_R_neuron_rates_tst = np.array([sim.data[p][tst_sl].mean(axis=0) for p in self.probes["lso_R_neurons"]])
+        lso_R_rate_hz_tst = lso_R_neuron_rates_tst.mean(axis=1)
+        lso_R_neuron_rates_onset = np.array([sim.data[p][onset_sl].mean(axis=0) for p in self.probes["lso_R_neurons"]])
+        lso_R_rate_hz_onset = lso_R_neuron_rates_onset.mean(axis=1)
+
+# NEW: raw-spike ILD (not NEF-decoded)
+        ild_neural_tst = lso_R_rate_hz_tst - lso_L_rate_hz_tst
+        ild_neural_onset = lso_R_rate_hz_onset - lso_L_rate_hz_onset
 
         return SimulationResults(
             ild=ild,
@@ -194,5 +204,11 @@ class BrainstemModel:
             lso_L_rate_hz_tst=lso_L_rate_hz_tst,
             lso_L_neuron_rates_tst=lso_L_neuron_rates_tst,
             lso_L_rate_hz_onset=lso_L_rate_hz_onset,
-            lso_L_neuron_rates_onset=lso_L_neuron_rates_onset
+            lso_L_neuron_rates_onset=lso_L_neuron_rates_onset,
+            lso_R_rate_hz_tst=lso_R_rate_hz_tst,
+            lso_R_neuron_rates_tst=lso_R_neuron_rates_tst,
+            lso_R_rate_hz_onset=lso_R_rate_hz_onset,
+            lso_R_neuron_rates_onset=lso_R_neuron_rates_onset,
+            ild_neural_tst=ild_neural_tst,
+            ild_neural_onset=ild_neural_onset,
         )
