@@ -55,3 +55,9 @@ class SimulationResults:
     lso_L_neuron_rates_tst: np.ndarray
     lso_L_rate_hz_onset: np.ndarray
     lso_L_neuron_rates_onset: np.ndarray
+    lso_R_rate_hz_tst: np.ndarray = None
+    lso_R_neuron_rates_tst: np.ndarray = None
+    lso_R_rate_hz_onset: np.ndarray = None
+    lso_R_neuron_rates_onset: np.ndarray = None
+    ild_neural_tst: np.ndarray = None
+    ild_neural_onset: np.ndarray = None
