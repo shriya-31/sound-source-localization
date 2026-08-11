@@ -1,2 +1,3 @@
 # add file formats that you do not want to track
 *.pyc
+.DS_Store
