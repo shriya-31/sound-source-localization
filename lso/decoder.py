@@ -7,28 +7,7 @@ from dataclasses import dataclass
 @dataclass
 class DecoderTrainingData:
     X: np.ndarray #(n_samples, n_channels)
-    y: np.ndarray #(n_samples,) - normed angles [-1, 1]
     angles_deg: np.ndarray #(n_samples,) - angles
-
-class DatasetBuilder:
-    def __init__(self, config, brainstem, spatializer, stimulus_gen):
-        self.config = config
-        self.brainstem = brainstem
-        self.spatializer = spatializer
-        self.stimulus_gen = stimulus_gen
-
-    def build(self, seeds, angles):
-        X, y, angs = [], [], []
-        for seed in seeds:
-            mono = self.stimulus_gen.generate_noise(seed=seed)
-            for angle in angles:
-                left, right = self.spatializer.spatialize(mono, angle)
-                res = self.brainstem.run(left, right)
-                X.append(res.ild)
-                y.append(angle / 90.0)
-                angs.append(angle)
-                #gc.collect()
-        return DecoderTrainingData(np.array(X), np.array(y), np.array(angs))
 
 class ICDecoderInput:
     def __init__(self, n_channels):
@@ -36,7 +15,7 @@ class ICDecoderInput:
     def __call__(self, t):
         return self.data
 
-class ICDecoder:
+class ICCircularDecoder:
     def __init__(self, config, n_neurons=1000, radius=None, reg=0.01, settle_s=0.05):
         self.config = config
         self.n_neurons = n_neurons
@@ -48,11 +27,12 @@ class ICDecoder:
         self.input_ctrl = None
         self.sim = None
 
-    def fit(self, X_train, y_train):
+    def fit(self, X_train, y_train_deg):
         n_channels = X_train.shape[1]
         self.input_ctrl = ICDecoderInput(n_channels)
 
-        y_train_2d = np.asarray(y_train).reshape(-1, 1)
+        theta = np.deg2rad(y_train_deg)
+        y_train_cos_sin = np.column_stack([np.cos(theta), np.sin(theta)]) 
 
         if self.radius is None:
             self.radius = np.max(np.linalg.norm(X_train, axis=1)) * 1.05
@@ -67,11 +47,11 @@ class ICDecoder:
             )
             nengo.Connection(ild_input, ic, synapse=self.config.tau_excit)
 
-            az_node = nengo.Node(size_in=1)
+            az_node = nengo.Node(size_in=2)
             nengo.Connection(
                 ic, az_node,
                 eval_points=X_train,
-                function=y_train_2d,      
+                function=y_train_cos_sin,      
                 solver=nengo.solvers.LstsqL2(reg=self.reg),
                 scale_eval_points=False,
             )
@@ -86,9 +66,11 @@ class ICDecoder:
             raise RuntimeError("Call fit().")
         self.input_ctrl.data = ild_vector
         self.sim.run(self.settle_s)
-        pred_norm = self.sim.data[self.probe][-1, 0]
+        pred_cos_sin = self.sim.data[self.probe][-1, :]
         self.sim.reset()
-        return pred_norm * 90.0
+        angle = np.rad2deg(np.arctan2(pred_cos_sin[1], pred_cos_sin[0]))
+        angle = angle % 360
+        return float(angle)
 
     def predict(self, X: np.ndarray):
         return np.array([self.predict_one(x) for x in X])
@@ -99,17 +81,27 @@ class ICDecoder:
 
 
 class ICDecoderEvaluator:
+
     @staticmethod
-    def evaluate(decoder: ICDecoder, X_test, y_test_deg):
+    def calculate_circular_errors(y_true, y_pred):
+        y_true = np.asarray(y_true) % 360
+        y_pred = np.asarray(y_pred) % 360
+        return ((y_pred - y_true + 180) % 360) - 180
+    
+    @staticmethod
+    def evaluate(decoder: ICCircularDecoder, X_test, y_test_deg):
         preds = decoder.predict(X_test)
-        mae = np.mean(np.abs(preds - y_test_deg))
+        errors = ICDecoderEvaluator.calculate_circular_errors(y_test_deg, preds)
+        mae = np.mean(np.abs(errors))
         return preds, mae
 
     @staticmethod
     def plot(actual_deg, predicted_deg, mae, title="Decoder"):
         plt.figure(figsize=(6, 6))
         plt.scatter(actual_deg, predicted_deg, s=80)
-        plt.plot([-90, 90], [-90, 90], 'r--')
+        min_val, max_val = min(actual_deg), max(actual_deg)
+        plt.plot([min_val, max_val], [min_val, max_val], 'r--')
+        
         plt.xlabel('Real azimuth (°)')
         plt.ylabel('Predicted azimuth (°)')
         plt.title(f'{title} - MAE = {mae:.1f}°')
