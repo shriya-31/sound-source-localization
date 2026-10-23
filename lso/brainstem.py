@@ -127,6 +127,9 @@ class BrainstemModel:
             self.probes["lso_L_neurons"] = [
                 nengo.Probe(lso_L.ensembles[ch].neurons) for ch in range(config.n_channels)
             ]
+            self.probes["lso_R_neurons"] = [
+                nengo.Probe(lso_R.ensembles[ch].neurons) for ch in range(config.n_channels)
+            ]
 
         self.model = model
         return model
